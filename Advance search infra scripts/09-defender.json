@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "resources": [
+    {
+      "type": "Microsoft.Security/pricings",
+      "apiVersion": "2023-01-01",
+      "name": "AppServices",
+      "properties": { "pricingTier": "Standard" }
+    },
+    {
+      "type": "Microsoft.Security/pricings",
+      "apiVersion": "2023-01-01",
+      "name": "StorageAccounts",
+      "properties": {
+        "pricingTier": "Standard",
+        "subPlan": "PerStorageAccount"
+      }
+    },
+    {
+      "type": "Microsoft.Security/pricings",
+      "apiVersion": "2023-01-01",
+      "name": "CosmosDbs",
+      "properties": { "pricingTier": "Standard" }
+    },
+    {
+      "type": "Microsoft.Security/pricings",
+      "apiVersion": "2023-01-01",
+      "name": "KeyVaults",
+      "properties": { "pricingTier": "Standard" }
+    },
+    {
+      "type": "Microsoft.Security/pricings",
+      "apiVersion": "2023-01-01",
+      "name": "Api",
+      "properties": {
+        "pricingTier": "Standard",
+        "subPlan": "P1"
+      }
+    }
+  ],
+  "outputs": {}
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": { "type": "string", "defaultValue": "advsearch" },
+    "environment": { "type": "string", "defaultValue": "dev" },
+    "location": { "type": "string", "defaultValue": "centralindia" }
+  },
+  "variables": {
+    "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
+    "storageAccountName": "[toLower(take(concat('st', parameters('namePrefix'), parameters('environment'), variables('uniqueSuffix')), 24))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": { "name": "Standard_LRS" },
+      "kind": "StorageV2",
+      "properties": {
+        "accessTier": "Hot",
+        "isHnsEnabled": false,
+        "allowBlobPublicAccess": false,
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true,
+        "isSftpEnabled": false
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-01-01",
+      "name": "[concat(variables('storageAccountName'), '/default/documents')]",
+      "dependsOn": [ "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]" ],
+      "properties": { "publicAccess": "None" }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+      "apiVersion": "2023-01-01",
+      "name": "[concat(variables('storageAccountName'), '/default/backupshare')]",
+      "dependsOn": [ "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]" ],
+      "properties": { "shareQuota": 5 }
+    }
+  ],
+  "outputs": {
+    "storageAccountName": { "type": "string", "value": "[variables('storageAccountName')]" },
+    "storageAccountId": { "type": "string", "value": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]" },
+    "primaryConnectionString": {
+      "type": "string",
+      "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-01-01').keys[0].value, ';EndpointSuffix=core.windows.net')]"
+    }
+  }
+}

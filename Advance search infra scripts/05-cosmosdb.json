@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": { "type": "string", "defaultValue": "advsearch" },
+    "environment": { "type": "string", "defaultValue": "dev" },
+    "location": { "type": "string", "defaultValue": "centralindia" },
+    "throughput": { "type": "int", "defaultValue": 100 }
+  },
+  "variables": {
+    "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
+    "cosmosAccountName": "[toLower(concat('cosmos-', parameters('namePrefix'), '-', parameters('environment'), '-', variables('uniqueSuffix')))]",
+    "databaseName": "advsearchdb"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2023-11-15",
+      "name": "[variables('cosmosAccountName')]",
+      "location": "[parameters('location')]",
+      "kind": "GlobalDocumentDB",
+      "properties": {
+        "databaseAccountOfferType": "Standard",
+        "locations": [
+          { "locationName": "[parameters('location')]", "failoverPriority": 0, "isZoneRedundant": false }
+        ],
+        "consistencyPolicy": { "defaultConsistencyLevel": "Session" },
+        "capabilities": [],
+        "backupPolicy": {
+          "type": "Periodic",
+          "periodicModeProperties": {
+            "backupIntervalInMinutes": 240,
+            "backupRetentionIntervalInHours": 8,
+            "backupStorageRedundancy": "Local"
+          }
+        },
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+      "apiVersion": "2023-11-15",
+      "name": "[concat(variables('cosmosAccountName'), '/', variables('databaseName'))]",
+      "dependsOn": [ "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosAccountName'))]" ],
+      "properties": {
+        "resource": { "id": "[variables('databaseName')]" },
+        "options": { "throughput": "[parameters('throughput')]" }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2023-11-15",
+      "name": "[concat(variables('cosmosAccountName'), '/', variables('databaseName'), '/records')]",
+      "dependsOn": [ "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('cosmosAccountName'), variables('databaseName'))]" ],
+      "properties": {
+        "resource": {
+          "id": "records",
+          "partitionKey": { "paths": [ "/id" ], "kind": "Hash" }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "cosmosAccountName": { "type": "string", "value": "[variables('cosmosAccountName')]" },
+    "databaseName": { "type": "string", "value": "[variables('databaseName')]" },
+    "primaryConnectionString": { "type": "string", "value": "[listConnectionStrings(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosAccountName')), '2023-11-15').connectionStrings[0].connectionString]" }
+  }
+}

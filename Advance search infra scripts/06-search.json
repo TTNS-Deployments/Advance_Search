@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": { "type": "string", "defaultValue": "advsearch" },
+    "environment": { "type": "string", "defaultValue": "dev" },
+    "location": { "type": "string", "defaultValue": "centralindia" }
+  },
+  "variables": {
+    "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
+    "searchServiceName": "[toLower(concat('srch-', parameters('namePrefix'), '-', parameters('environment'), '-', variables('uniqueSuffix')))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Search/searchServices",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('searchServiceName')]",
+      "location": "[parameters('location')]",
+      "sku": { "name": "standard" },
+      "properties": {
+        "replicaCount": 1,
+        "partitionCount": 1,
+        "hostingMode": "default",
+        "publicNetworkAccess": "enabled",
+        "disableLocalAuth": false,
+        "authOptions": { "aadOrApiKey": { "aadAuthFailureMode": "http401WithBearerChallenge" } }
+      }
+    }
+  ],
+  "outputs": {
+    "searchServiceName": { "type": "string", "value": "[variables('searchServiceName')]" },
+    "adminKey": { "type": "string", "value": "[listAdminKeys(resourceId('Microsoft.Search/searchServices', variables('searchServiceName')), '2023-11-01').primaryKey]" }
+  }
+}

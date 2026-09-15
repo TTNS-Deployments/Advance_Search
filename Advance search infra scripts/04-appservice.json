@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": { "type": "string", "defaultValue": "advsearch" },
+    "environment": { "type": "string", "defaultValue": "dev" },
+    "location": { "type": "string", "defaultValue": "centralindia" },
+    "appInsightsConnectionString": { "type": "securestring", "defaultValue": "" },
+    "keyVaultUri": { "type": "string", "defaultValue": "" }
+  },
+  "variables": {
+    "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
+    "appServicePlanName": "[concat('asp-', parameters('namePrefix'), '-', parameters('environment'))]",
+    "webAppName": "[toLower(concat('app-', parameters('namePrefix'), '-', parameters('environment'), '-', variables('uniqueSuffix')))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2022-09-01",
+      "name": "[variables('appServicePlanName')]",
+      "location": "[parameters('location')]",
+      "sku": { "name": "P1v2", "tier": "PremiumV2", "size": "P1v2", "capacity": 1 },
+      "kind": "linux",
+      "properties": { "reserved": true }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2022-09-01",
+      "name": "[variables('webAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "app,linux",
+      "identity": { "type": "SystemAssigned" },
+      "dependsOn": [ "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]" ],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "httpsOnly": true,
+        "siteConfig": {
+          "linuxFxVersion": "PYTHON|3.12",
+          "alwaysOn": true,
+          "ftpsState": "Disabled",
+          "minTlsVersion": "1.2",
+          "appSettings": [
+            { "name": "APPLICATIONINSIGHTS_CONNECTION_STRING", "value": "[parameters('appInsightsConnectionString')]" },
+            { "name": "KEY_VAULT_URI", "value": "[parameters('keyVaultUri')]" },
+            { "name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "true" }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "webAppName": { "type": "string", "value": "[variables('webAppName')]" },
+    "webAppPrincipalId": { "type": "string", "value": "[reference(resourceId('Microsoft.Web/sites', variables('webAppName')), '2022-09-01', 'full').identity.principalId]" },
+    "defaultHostName": { "type": "string", "value": "[reference(resourceId('Microsoft.Web/sites', variables('webAppName'))).defaultHostName]" }
+  }
+}

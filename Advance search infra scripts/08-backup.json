@@ -1,0 +1,80 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": { "type": "string", "defaultValue": "advsearch" },
+    "environment": { "type": "string", "defaultValue": "dev" },
+    "location": { "type": "string", "defaultValue": "centralindia" },
+    "storageAccountName": { "type": "string" },
+    "fileShareName": { "type": "string", "defaultValue": "backupshare" }
+  },
+  "variables": {
+    "vaultName": "[concat('rsv-', parameters('namePrefix'), '-', parameters('environment'))]",
+    "policyName": "DefaultFileSharePolicy",
+    "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+    "containerName": "[concat('StorageContainer;Storage;', resourceGroup().name, ';', parameters('storageAccountName'))]",
+    "protectedItemName": "[concat('AzureFileShareProtectedItem;azurefileshare;', parameters('fileShareName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.RecoveryServices/vaults",
+      "apiVersion": "2023-06-01",
+      "name": "[variables('vaultName')]",
+      "location": "[parameters('location')]",
+      "sku": { "name": "Standard" },
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/backupPolicies",
+      "apiVersion": "2023-06-01",
+      "name": "[concat(variables('vaultName'), '/', variables('policyName'))]",
+      "dependsOn": [ "[resourceId('Microsoft.RecoveryServices/vaults', variables('vaultName'))]" ],
+      "properties": {
+        "backupManagementType": "AzureStorage",
+        "workLoadType": "AzureFileShare",
+        "schedulePolicy": {
+          "schedulePolicyType": "SimpleSchedulePolicy",
+          "scheduleRunFrequency": "Daily",
+          "scheduleRunTimes": [ "2026-01-01T21:30:00Z" ]
+        },
+        "retentionPolicy": {
+          "retentionPolicyType": "LongTermRetentionPolicy",
+          "dailySchedule": {
+            "retentionTimes": [ "2026-01-01T21:30:00Z" ],
+            "retentionDuration": { "count": 30, "durationType": "Days" }
+          }
+        },
+        "timeZone": "India Standard Time"
+      }
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers",
+      "apiVersion": "2023-06-01",
+      "name": "[concat(variables('vaultName'), '/Azure/', variables('containerName'))]",
+      "dependsOn": [ "[resourceId('Microsoft.RecoveryServices/vaults', variables('vaultName'))]" ],
+      "properties": {
+        "backupManagementType": "AzureStorage",
+        "containerType": "StorageContainer",
+        "sourceResourceId": "[variables('storageAccountId')]"
+      }
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems",
+      "apiVersion": "2023-06-01",
+      "name": "[concat(variables('vaultName'), '/Azure/', variables('containerName'), '/', variables('protectedItemName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers', variables('vaultName'), 'Azure', variables('containerName'))]",
+        "[resourceId('Microsoft.RecoveryServices/vaults/backupPolicies', variables('vaultName'), variables('policyName'))]"
+      ],
+      "properties": {
+        "protectedItemType": "AzureFileShareProtectedItem",
+        "sourceResourceId": "[variables('storageAccountId')]",
+        "friendlyName": "[parameters('fileShareName')]",
+        "policyId": "[resourceId('Microsoft.RecoveryServices/vaults/backupPolicies', variables('vaultName'), variables('policyName'))]"
+      }
+    }
+  ],
+  "outputs": {
+    "vaultName": { "type": "string", "value": "[variables('vaultName')]" }
+  }
+}

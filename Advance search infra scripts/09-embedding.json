@@ -1,0 +1,61 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": { "type": "string", "defaultValue": "advsearch" },
+    "environment": { "type": "string", "defaultValue": "dev" },
+    "location": { "type": "string", "defaultValue": "eastus2" },
+    "modelName": { "type": "string", "defaultValue": "text-embedding-3-large" },
+    "modelVersion": { "type": "string", "defaultValue": "1" },
+    "deploymentCapacity": {
+      "type": "int",
+      "defaultValue": 30,
+      "metadata": { "description": "Tokens-per-minute quota for this deployment, in thousands. 30 = 30K TPM, plenty for small-scale indexing/query traffic." }
+    }
+  },
+  "variables": {
+    "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
+    "accountName": "[toLower(concat('oai-', parameters('namePrefix'), '-', parameters('environment'), '-', variables('uniqueSuffix')))]",
+    "deploymentName": "embedding-large"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('accountName')]",
+      "location": "[parameters('location')]",
+      "kind": "OpenAI",
+      "sku": { "name": "S0" },
+      "identity": { "type": "SystemAssigned" },
+      "properties": {
+        "customSubDomainName": "[variables('accountName')]",
+        "publicNetworkAccess": "Enabled",
+        "disableLocalAuth": false
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2023-05-01",
+      "name": "[concat(variables('accountName'), '/', variables('deploymentName'))]",
+      "dependsOn": [ "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]" ],
+      "sku": {
+        "name": "Standard",
+        "capacity": "[parameters('deploymentCapacity')]"
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "[parameters('modelName')]",
+          "version": "[parameters('modelVersion')]"
+        },
+        "versionUpgradeOption": "OnceNewDefaultVersionAvailable"
+      }
+    }
+  ],
+  "outputs": {
+    "accountName": { "type": "string", "value": "[variables('accountName')]" },
+    "endpoint": { "type": "string", "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', variables('accountName')), '2023-05-01').endpoint]" },
+    "deploymentName": { "type": "string", "value": "[variables('deploymentName')]" },
+    "apiKey": { "type": "string", "value": "[listKeys(resourceId('Microsoft.CognitiveServices/accounts', variables('accountName')), '2023-05-01').key1]" }
+  }
+}

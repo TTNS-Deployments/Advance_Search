@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": { "type": "string", "defaultValue": "advsearch" },
+    "environment": { "type": "string", "defaultValue": "dev" },
+    "location": { "type": "string", "defaultValue": "centralindia" },
+    "storageAccountName": { "type": "string" },
+    "appInsightsConnectionString": { "type": "securestring", "defaultValue": "" }
+  },
+  "variables": {
+    "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
+    "functionPlanName": "[concat('plan-func-', parameters('namePrefix'), '-', parameters('environment'))]",
+    "functionAppName": "[toLower(concat('func-', parameters('namePrefix'), '-', parameters('environment'), '-', variables('uniqueSuffix')))]",
+    "storageConnectionString": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-01-01').keys[0].value, ';EndpointSuffix=core.windows.net')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2022-09-01",
+      "name": "[variables('functionPlanName')]",
+      "location": "[parameters('location')]",
+      "sku": { "name": "Y1", "tier": "Dynamic" },
+      "kind": "functionapp,linux",
+      "properties": { "reserved": true }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2022-09-01",
+      "name": "[variables('functionAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp,linux",
+      "identity": { "type": "SystemAssigned" },
+      "dependsOn": [ "[resourceId('Microsoft.Web/serverfarms', variables('functionPlanName'))]" ],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('functionPlanName'))]",
+        "httpsOnly": true,
+        "siteConfig": {
+          "linuxFxVersion": "PYTHON|3.12",
+          "appSettings": [
+            { "name": "AzureWebJobsStorage", "value": "[variables('storageConnectionString')]" },
+            { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~4" },
+            { "name": "FUNCTIONS_WORKER_RUNTIME", "value": "python" },
+            { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", "value": "[variables('storageConnectionString')]" },
+            { "name": "WEBSITE_CONTENTSHARE", "value": "[toLower(variables('functionAppName'))]" },
+            { "name": "APPLICATIONINSIGHTS_CONNECTION_STRING", "value": "[parameters('appInsightsConnectionString')]" }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "functionAppName": { "type": "string", "value": "[variables('functionAppName')]" },
+    "functionAppPrincipalId": { "type": "string", "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2022-09-01', 'full').identity.principalId]" }
+  }
+}
