@@ -88,7 +88,7 @@ Before you deploy, make sure you have:
 1. **Clone this repository**
    ```bash
    git clone <your-repo-url>
-   cd advsearch-deploy
+cd TTNS-Deployments/"Advance search infra scripts"
    ```
 
 2. **Log in to Azure**
@@ -156,9 +156,9 @@ touching the rest. Example — redeploy only the embedding model:
 ```
 Or redeploy any other single template directly:
 ```bash
-az deployment group create \
-  --resource-group rg-advsearch-dev \
-  --template-file templates/06-search.json \
+     az deployment group create \
+       --resource-group rg-advsearch-dev \
+       --template-file 09-embedding.json
   --parameters namePrefix=advsearch environment=dev location=centralindia
 ```
 ARM deployments are idempotent — re-running a template against an existing resource
@@ -170,7 +170,7 @@ If you skipped step 10, or want to re-run it:
 ```bash
 az deployment sub create \
   --location centralindia \
-  --template-file subscription/09-defender.json
+  --template-file 09-defender.json
 ```
 
 ## Tearing everything down
